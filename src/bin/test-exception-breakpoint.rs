@@ -1,34 +1,20 @@
-#![feature(abi_x86_interrupt)]
 #![no_std]
 #![cfg_attr(not(test), no_main)]
 #![cfg_attr(test, allow(dead_code, unused_macros, unused_imports))]
 
 use blog_os::{exit_qemu, serial_println};
 use core::panic::PanicInfo;
-use core::sync::atomic::{AtomicUsize, Ordering};
-use lazy_static::lazy_static;
-
-static BREAKPOINT_HANDLER_CALLED: AtomicUsize = AtomicUsize::new(0);
 
 #[cfg(not(test))]
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-    init_test_idt();
+    blog_os::interrupts::init_idt();
 
     // invoke a breakpoint exception
     x86_64::instructions::int3();
 
-    match BREAKPOINT_HANDLER_CALLED.load(Ordering::SeqCst) {
-        1 => serial_println!("ok"),
-        0 => {
-            serial_println!("failed");
-            serial_println!("Breakpoint handler was not called.");
-        }
-        other => {
-            serial_println!("failed");
-            serial_println!("Breakpoint handler was called {} times", other);
-        }
-    }
+    serial_println!("failed");
+    serial_println!("Expected to panic!");
 
     unsafe {
         exit_qemu();
@@ -41,30 +27,12 @@ pub extern "C" fn _start() -> ! {
 #[cfg(not(test))]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    serial_println!("failed");
     serial_println!("{}", info);
+    serial_println!("ok");
 
     unsafe {
         exit_qemu();
     }
 
     loop {}
-}
-
-use x86_64::structures::idt::{ExceptionStackFrame, InterruptDescriptorTable};
-
-lazy_static! {
-    static ref TEST_IDT: InterruptDescriptorTable = {
-        let mut idt = InterruptDescriptorTable::new();
-        idt.breakpoint.set_handler_fn(breakpoint_handler);
-        idt
-    };
-}
-
-pub fn init_test_idt() {
-    TEST_IDT.load();
-}
-
-extern "x86-interrupt" fn breakpoint_handler(_stack_frame: &mut ExceptionStackFrame) {
-    BREAKPOINT_HANDLER_CALLED.fetch_add(1, Ordering::SeqCst);
 }
