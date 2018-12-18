@@ -13,6 +13,7 @@ use blog_os::println;
 pub extern "C" fn _start() -> ! {
     println!("Hello World{}", "!");
 
+    blog_os::gdt::init();
     blog_os::interrupts::init_idt();
 
     blog_os::hlt_loop();
