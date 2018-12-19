@@ -15,12 +15,9 @@ pub extern "C" fn _start() -> ! {
 
     // invoke a breakpoint exception
     unsafe { PICS.lock().initialize() };
+    x86_64::instructions::interrupts::enable();
 
     serial_println!("ok");
-
-    unsafe {
-        exit_qemu();
-    }
 
     loop {}
 }
